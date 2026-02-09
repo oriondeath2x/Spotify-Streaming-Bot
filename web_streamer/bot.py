@@ -64,6 +64,15 @@ class SpotifyBot(threading.Thread):
 
             driver = self.driver_handler.driver
 
+            # Strict Proxy Check (Verify IP before login)
+            # This requires Selenium to load an IP checker page.
+            # self.log("Verifying Proxy...")
+            # driver.get("https://api.ipify.org?format=json")
+            # body_text = driver.find_element(By.TAG_NAME, "body").text
+            # if self.proxy and self.proxy.split(':')[0] not in body_text:
+            #     self.log(f"Proxy Mismatch! Expected {self.proxy} but got {body_text}")
+            #     # return  <-- Strict mode would return here. Commented out for now to avoid false positives.
+
             # Warmup
             if self.config.get('warmup_enabled', True):
                 self.log("Warming up...")
@@ -226,8 +235,19 @@ class SpotifyBot(threading.Thread):
             # Monitor
             while self.is_running and (time.time() - start_time < duration):
                 remaining = int(duration - (time.time() - start_time))
+
+                # Check for Ads
+                SpotifyActions(driver).skip_ad_if_possible()
+
+                # Random Behavior: Skip Track (10% chance every min)
+                if remaining % 60 == 0:
+                     if random.random() < 0.1:
+                         self.log("Simulating Skip.")
+                         SpotifyActions(driver).skip_track()
+
                 if remaining % 30 == 0:
                     self.log(f"Streaming... {remaining}s remaining.")
+
                 time.sleep(5)
 
             self.log("Stream duration reached.")

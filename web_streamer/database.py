@@ -28,6 +28,7 @@ class DatabaseManager:
                         proxy TEXT,
                         status TEXT DEFAULT 'Active',
                         device_type TEXT DEFAULT 'desktop',
+                        schedule TEXT DEFAULT '00:00-23:59',
                         last_used DATETIME,
                         created_at DATETIME DEFAULT CURRENT_TIMESTAMP
                     )''')
@@ -37,6 +38,23 @@ class DatabaseManager:
             c.execute('''CREATE TABLE IF NOT EXISTS profiles (
                         username TEXT PRIMARY KEY,
                         fingerprint_json TEXT,
+                        updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
+                    )''')
+
+            # Child Playlists Table
+            c.execute('''CREATE TABLE IF NOT EXISTS shared_playlists (
+                        id INTEGER PRIMARY KEY AUTOINCREMENT,
+                        url TEXT UNIQUE,
+                        creator_username TEXT,
+                        source_master_url TEXT,
+                        play_count INTEGER DEFAULT 0
+                    )''')
+
+            # Song Stats (Distribution)
+            c.execute('''CREATE TABLE IF NOT EXISTS song_stats (
+                        song_url TEXT PRIMARY KEY,
+                        play_count INTEGER DEFAULT 0,
+                        last_played_by TEXT,
                         updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
                     )''')
 
@@ -162,3 +180,32 @@ class DatabaseManager:
         except Exception as e:
             logger.error(f"DB Error get_stats: {e}")
             return []
+
+    def save_child_playlist(self, url, creator):
+        """Saves a generated playlist."""
+        try:
+            with self.lock:
+                conn = self._get_conn()
+                c = conn.cursor()
+                c.execute("INSERT OR IGNORE INTO shared_playlists (url, creator_username) VALUES (?, ?)", (url, creator))
+                conn.commit()
+                conn.close()
+        except Exception as e:
+            logger.error(f"DB Error save_child_playlist: {e}")
+
+    def get_random_child_playlist(self, exclude_creator=None):
+        """Returns a playlist URL not created by the requester."""
+        try:
+            with self.lock:
+                conn = self._get_conn()
+                c = conn.cursor()
+                if exclude_creator:
+                    c.execute("SELECT url FROM shared_playlists WHERE creator_username != ? ORDER BY RANDOM() LIMIT 1", (exclude_creator,))
+                else:
+                    c.execute("SELECT url FROM shared_playlists ORDER BY RANDOM() LIMIT 1")
+                row = c.fetchone()
+                conn.close()
+            return row[0] if row else None
+        except Exception as e:
+            logger.error(f"DB Error get_random_child_playlist: {e}")
+            return None

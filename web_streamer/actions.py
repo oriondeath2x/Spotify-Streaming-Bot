@@ -114,3 +114,27 @@ class SpotifyActions:
         except Exception as e:
             logger.error(f"Search and play failed: {e}")
             return False
+
+    def skip_ad_if_possible(self):
+        """Attempts to skip an ad if a button is present."""
+        try:
+            # Ad button text "Skip" or "Next"
+            # Note: Spotify aggressively obfuscates this. This is best effort.
+            # Look for button in ad container
+            skip_btn = self.driver.find_element(By.XPATH, "//button[contains(text(), 'Skip') or contains(text(), 'Dismiss')]")
+            skip_btn.click()
+            logger.info("Skipped Ad.")
+            return True
+        except:
+            return False
+
+    def skip_track(self):
+        """Clicks the 'Next' button."""
+        try:
+            next_btn = self.driver.find_element(By.CSS_SELECTOR, "button[data-testid='control-button-skip-forward']")
+            next_btn.click()
+            logger.info("Skipped Track.")
+            return True
+        except Exception as e:
+            logger.error(f"Skip track failed: {e}")
+            return False
