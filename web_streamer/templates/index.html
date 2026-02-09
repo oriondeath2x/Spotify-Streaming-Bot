@@ -25,6 +25,15 @@
                     <h4>Configuration</h4>
                     <form id="configForm">
                         <div class="mb-2">
+                            <label>Bot Mode</label>
+                            <select class="form-select" id="modeSelect">
+                                <option value="STREAM">Stream Target URL</option>
+                                <option value="STREAM_SHARED">Stream Generated Playlists (Smart)</option>
+                                <option value="GENERATE">Generate Playlists</option>
+                                <option value="ENGAGE">Engage (Like/Follow/Stream)</option>
+                            </select>
+                        </div>
+                        <div class="mb-2">
                             <label>Target URL (Playlist/Song)</label>
                             <input type="text" class="form-control" id="targetUrl" placeholder="https://open.spotify.com/..." required>
                         </div>
@@ -65,7 +74,8 @@
                         <h4>Active Bots</h4>
                         <div>
                             <button id="startAllBtn" class="btn btn-success me-2">Start All</button>
-                            <button id="stopAllBtn" class="btn btn-danger">Stop All</button>
+                            <button id="stopAllBtn" class="btn btn-danger me-2">Stop All</button>
+                            <button id="resetProfilesBtn" class="btn btn-secondary">Reset Profiles</button>
                         </div>
                     </div>
 
@@ -108,6 +118,7 @@
                 duration: document.getElementById('duration').value,
                 warmup_enabled: document.getElementById('warmupCheck').checked,
                 headless: document.getElementById('headlessCheck').checked,
+                mode: document.getElementById('modeSelect').value,
                 username: "all"
             };
 
@@ -127,6 +138,14 @@
                 body: JSON.stringify({ username: "all" })
             });
             alert("Stopping all bots...");
+        });
+
+        // Reset Profiles
+        document.getElementById('resetProfilesBtn').addEventListener('click', async () => {
+            if(confirm("Are you sure? This will delete all saved fingerprints and cookies!")) {
+                await fetch(`${API_URL}/reset`, { method: 'POST' });
+                alert("Profiles reset.");
+            }
         });
 
         // Update Data (Accounts/Proxies)
@@ -152,7 +171,8 @@
                 target_url: document.getElementById('targetUrl').value,
                 duration: document.getElementById('duration').value,
                 warmup_enabled: document.getElementById('warmupCheck').checked,
-                headless: document.getElementById('headlessCheck').checked
+                headless: document.getElementById('headlessCheck').checked,
+                mode: document.getElementById('modeSelect').value
             };
             // Use same config endpoint but without accounts/proxies
             await fetch(`${API_URL}/config`, {
@@ -164,6 +184,20 @@
         });
 
         // Poll Status
+        async function loadConfig() {
+            try {
+                const res = await fetch(`${API_URL}/config`);
+                const config = await res.json();
+                document.getElementById('targetUrl').value = config.target_url;
+                document.getElementById('duration').value = config.duration;
+                document.getElementById('warmupCheck').checked = config.warmup_enabled;
+                document.getElementById('headlessCheck').checked = config.headless;
+                document.getElementById('modeSelect').value = config.mode;
+            } catch (e) {
+                console.error("Config load error:", e);
+            }
+        }
+
         async function updateStatus() {
             try {
                 const res = await fetch(`${API_URL}/status`);
@@ -207,6 +241,7 @@
 
         setInterval(updateStatus, 2000);
         updateStatus(); // Initial call
+        loadConfig(); // Load initial config
 
     </script>
 </body>

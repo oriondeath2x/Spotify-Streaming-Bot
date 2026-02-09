@@ -13,7 +13,9 @@ CONFIG = {
     "duration": 60,
     "warmup_enabled": True,
     "threads": 1,
-    "headless": False
+    "headless": False,
+    "mode": "STREAM",
+    "shared_playlists": []
 }
 
 @app.route('/')
@@ -35,6 +37,7 @@ def start_bot():
     CONFIG['duration'] = int(data.get('duration', CONFIG['duration']))
     CONFIG['warmup_enabled'] = data.get('warmup_enabled', CONFIG['warmup_enabled'])
     CONFIG['headless'] = data.get('headless', CONFIG['headless'])
+    CONFIG['mode'] = data.get('mode', CONFIG['mode'])
 
     if username == "all":
         manager.start_all(CONFIG)
@@ -55,19 +58,33 @@ def stop_bot():
         manager.stop_bot(username)
         return jsonify({"message": f"Stopped bot {username}."})
 
-@app.route('/api/config', methods=['POST'])
+@app.route('/api/reset', methods=['POST'])
+def reset_profiles():
+    success, msg = manager.reset_profiles()
+    return jsonify({"message": msg})
+
+@app.route('/api/config', methods=['GET', 'POST'])
 def update_config():
+    if request.method == 'GET':
+        return jsonify({
+            "target_url": CONFIG['target_url'],
+            "duration": CONFIG['duration'],
+            "warmup_enabled": CONFIG['warmup_enabled'],
+            "headless": CONFIG['headless'],
+            "mode": CONFIG['mode']
+        })
+
     data = request.json
 
     # Update accounts
     if 'accounts' in data:
-        accounts = data['accounts'].split('\n')
+        lines = data['accounts'].split('\n')
         # Filter empty lines
-        accounts = [a.strip() for a in accounts if a.strip()]
-        manager.accounts = accounts # Direct assignment for simplicity, better to use load method
-        # Also save to file for persistence
+        lines = [l.strip() for l in lines if l.strip()]
+        manager.accounts = manager.parse_accounts(lines)
+        # Also save to file for persistence (save the raw input)
         with open('accounts.txt', 'w') as f:
-            f.write('\n'.join(accounts))
+            f.write('\n'.join(lines))
 
     # Update proxies
     if 'proxies' in data:
@@ -81,6 +98,7 @@ def update_config():
     CONFIG['duration'] = int(data.get('duration', CONFIG['duration']))
     CONFIG['warmup_enabled'] = data.get('warmup_enabled', CONFIG['warmup_enabled'])
     CONFIG['headless'] = data.get('headless', CONFIG['headless'])
+    CONFIG['mode'] = data.get('mode', CONFIG['mode'])
 
     return jsonify({"message": "Config updated.", "accounts_count": len(manager.accounts), "proxies_count": len(manager.proxies)})
 

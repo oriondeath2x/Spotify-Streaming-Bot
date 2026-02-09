@@ -17,14 +17,17 @@ logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(
 logger = logging.getLogger(__name__)
 
 class BrowserHandler:
-    def __init__(self, proxy=None, profile_path=None, sandboxie_path=None, headless=False):
-        self.proxy = proxy
-        self.profile_path = profile_path
+    def __init__(self, profile_data=None, sandboxie_path=None, headless=False):
+        """
+        profile_data: dict containing 'proxy', 'user_agent', 'window_size', 'platform', etc.
+        """
+        self.profile_data = profile_data or {}
+        self.proxy = self.profile_data.get('proxy')
+        self.profile_path = self.profile_data.get('profile_path') # Full path to cookies file
         self.sandboxie_path = sandboxie_path
         self.headless = headless
         self.driver = None
-        self.ua = UserAgent()
-        self.user_agent = self.ua.random
+        self.user_agent = self.profile_data.get('user_agent') or UserAgent().random
         self.temp_files = []
 
     def _parse_proxy(self):
@@ -132,8 +135,14 @@ class BrowserHandler:
         """Initializes the Undetected Chrome Driver with options."""
         options = uc.ChromeOptions()
 
-        # Basic options
+        # Consistent Fingerprint
         options.add_argument(f'--user-agent={self.user_agent}')
+
+        # Window Size
+        if self.profile_data.get('window_size'):
+            width, height = self.profile_data['window_size'].split(',')
+            options.add_argument(f'--window-size={width},{height}')
+
         options.add_argument('--no-first-run')
         options.add_argument('--no-service-autorun')
         options.add_argument('--password-store=basic')
@@ -160,11 +169,13 @@ class BrowserHandler:
             logger.info("Starting Undetected Chrome Driver...")
             self.driver = uc.Chrome(options=options, use_subprocess=True) # use_subprocess fixes some issues
 
-            # Apply Selenium Stealth
+            # Apply Selenium Stealth with Profile Data if available
+            platform = self.profile_data.get('platform', 'Win32')
+
             stealth(self.driver,
                 languages=["en-US", "en"],
                 vendor="Google Inc.",
-                platform="Win32",
+                platform=platform,
                 webgl_vendor="Intel Inc.",
                 renderer="Intel Iris OpenGL Engine",
                 fix_hairline=True,
