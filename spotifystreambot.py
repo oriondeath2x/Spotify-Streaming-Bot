@@ -21,7 +21,7 @@ url = "https://github.com/Kichi779/Spotify-Streaming-Bot/"
 
 def check_for_updates():
     try:
-        r = requests.get("https://raw.githubusercontent.com/Kichi779/Spotify-Streaming-Bot/main/version.txt")
+        r = requests.get("https://raw.githubusercontent.com/Kichi779/Spotify-Streaming-Bot/main/version.txt", timeout=10)
         remote_version = r.content.decode('utf-8').strip()
         local_version = open('version.txt', 'r').read().strip()
         if remote_version != local_version:
@@ -35,7 +35,7 @@ def check_for_updates():
 
 def print_announcement():
     try:
-        r = requests.get("https://raw.githubusercontent.com/Kichi779/Spotify-Streaming-Bot/main/announcement.txt", headers={"Cache-Control": "no-cache"})
+        r = requests.get("https://raw.githubusercontent.com/Kichi779/Spotify-Streaming-Bot/main/announcement.txt", headers={"Cache-Control": "no-cache"}, timeout=10)
         announcement = r.content.decode('utf-8').strip()
         return announcement
     except:
