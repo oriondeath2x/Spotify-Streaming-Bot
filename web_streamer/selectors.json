@@ -1,0 +1,28 @@
+{
+    "login": {
+        "username_input": ["input#login-username", "#login-username", "input[name='username']"],
+        "password_input": ["input#login-password", "#login-password", "input[name='password']"],
+        "login_button": ["button#login-button", "[data-testid='login-button']", "//button[span[text()='Log In']]"],
+        "error_message": ["[data-testid='login-error-message']", ".Message-sc-15vkh7g-0", ".alert-danger"],
+        "accept_cookies": ["#onetrust-accept-btn-handler", "button[data-testid='cookie-banner-accept-button']", "//button[text()='Accept Cookies']"]
+    },
+    "playback": {
+        "play_button": ["[data-testid='play-button']", "button[data-testid='play-button']", ".Button-sc-1dqy6lx-0"],
+        "pause_button": ["[data-testid='control-button-pause']", "button[aria-label='Pause']"],
+        "next_track": ["[data-testid='control-button-skip-forward']", "button[aria-label='Next']"],
+        "like_button": ["[data-testid='add-button']", "button[aria-label='Save to Your Library']", "button[aria-label='Add to Liked Songs']"],
+        "shuffle_button": ["[data-testid='control-button-shuffle']", "button[aria-label='Enable shuffle']"],
+        "repeat_button": ["[data-testid='control-button-repeat']", "button[aria-label='Enable repeat']"]
+    },
+    "navigation": {
+        "search_link": ["a[href='/search']", "a[aria-label='Search']"],
+        "search_input": ["input[data-testid='search-input']", "input[role='searchbox']"],
+        "home_link": ["a[href='/']", "a[aria-label='Home']"],
+        "create_playlist": ["button[data-testid='create-playlist-button']", "button[aria-label='Create Playlist']"]
+    },
+    "artist": {
+        "follow_button": ["button[data-testid='user-widget-dropdown-follow-button']", "button[aria-label='Follow']", "button:contains('Follow')"],
+        "popular_track": ["[data-testid='tracklist-row']", ".TrackListRow"],
+        "play_popular": ["[data-testid='play-button']", ".Button-sc-1dqy6lx-0"]
+    }
+}

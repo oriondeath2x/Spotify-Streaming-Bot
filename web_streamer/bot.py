@@ -95,35 +95,44 @@ class SpotifyBot(threading.Thread):
 
             actions = SpotifyActions(driver)
 
-            if mode == 'STREAM':
-                self.log(f"Streaming target: {self.config.get('target_url')}")
-                self._stream(driver)
+            # Auto-Scheduler Mode (Default)
+            if mode == 'AUTO' or mode == 'STREAM':
+                from .database import DatabaseManager
+                from .scheduler import Scheduler
+                db = DatabaseManager()
+                scheduler = Scheduler(db)
 
-            elif mode == 'STREAM_SHARED':
-                shared = self.config.get('shared_playlists', [])
-                if shared:
-                    target = random.choice(shared)
-                    self.log(f"Streaming SHARED target: {target}")
-                    self.config['target_url'] = target # Temporary override for this bot
-                    self._stream(driver)
-                else:
-                    self.log("No shared playlists available yet. Falling back to target_url.")
-                    self.log(f"Streaming target: {self.config.get('target_url')}")
+                master = self.config.get('target_url')
+                task = scheduler.get_next_task(self.username, master)
+                action = task['action']
+
+                self.log(f"Task Assigned: {action} -> {task.get('url', 'N/A')}")
+
+                if action == "swarm_target":
+                    # Handle specific types
+                    self.config['target_url'] = task['url']
+                    if task['type'] == 'artist':
+                        actions.follow_artist(task['url'])
+                        self._stream(driver) # Stream their popular songs
+                    else:
+                        self._stream(driver)
+
+                elif action == "create_child_playlist":
+                    # Create playlist logic
+                    playlist_name = f"My Mix {random.randint(100,999)}"
+                    artists = ["The Weeknd", "Taylor Swift", "Drake", "BTS", "Ed Sheeran"]
+                    url = actions.create_playlist(playlist_name, tracks=random.sample(artists, 3))
+                    if url:
+                        self.log(f"Created Playlist: {url}")
+                        db.save_child_playlist(url, self.username)
+
+                elif action == "stream_child":
+                    self.config['target_url'] = task['url']
                     self._stream(driver)
 
-            elif mode == 'GENERATE':
-                playlist_name = f"My Mix {random.randint(100,999)}"
-                # Use target_url as a source of tracks? Or separate config?
-                # For simplicity, search random terms or artists
-                artists = ["The Weeknd", "Taylor Swift", "Drake", "BTS", "Ed Sheeran"]
-                url = actions.create_playlist(playlist_name, tracks=random.sample(artists, 3))
-                if url:
-                    self.log(f"Created Playlist: {url}")
-                    # Save url to global state (needs callback or shared list)
-                    if 'shared_playlists' in self.config:
-                         self.config['shared_playlists'].append(url)
-                else:
-                    self.log("Failed to create playlist.")
+                else: # Fallback stream master
+                    self.config['target_url'] = master
+                    self._stream(driver)
 
             elif mode == 'ENGAGE':
                 self.log("Starting Engagement (Like/Follow/Stream).")
@@ -219,22 +228,27 @@ class SpotifyBot(threading.Thread):
 
             # Click Play
             try:
-                play_button = WebDriverWait(driver, 10).until(
-                    EC.element_to_be_clickable((By.CSS_SELECTOR, "[data-testid='play-button']"))
-                )
-                play_button.click()
-                self.log("Playback started.")
+                # Use centralized selector via generic helper or specific action?
+                # Since bot.py doesn't inherit SpotifyActions directly, we can instantiate it or move logic.
+                # Better to use SpotifyActions if possible, but for raw click we can do:
+                actions = SpotifyActions(driver)
+                if actions._click_element("playback", "play_button"):
+                    self.log("Playback started.")
 
-                # Engagement while streaming
-                if random.random() < 0.3: # 30% chance to like
-                     SpotifyActions(driver).like_current_song()
-
+                    # Engagement while streaming
+                    if random.random() < 0.3: # 30% chance to like
+                        actions.like_current_song()
+                else:
+                     self.log("Could not find play button. Maybe already playing.")
             except:
-                 self.log("Could not find play button. Maybe already playing.")
+                 pass
 
-            # Monitor
-            while self.is_running and (time.time() - start_time < duration):
-                remaining = int(duration - (time.time() - start_time))
+            # Monitor with Smart Duration
+            # Randomize total duration slightly (90-110%) to look organic
+            real_duration = duration * random.uniform(0.9, 1.1)
+
+            while self.is_running and (time.time() - start_time < real_duration):
+                remaining = int(real_duration - (time.time() - start_time))
 
                 # Check for Ads
                 SpotifyActions(driver).skip_ad_if_possible()
@@ -245,12 +259,35 @@ class SpotifyBot(threading.Thread):
                          self.log("Simulating Skip.")
                          SpotifyActions(driver).skip_track()
 
+                # Simulate Mouse Movements (Keep session alive)
+                if random.random() < 0.05:
+                    self.log("Humanizing: Moving Mouse.")
+                    try:
+                        # Simple JS mouse wiggle
+                        driver.execute_script("""
+                            var event = new MouseEvent('mousemove', {
+                                'view': window,
+                                'bubbles': true,
+                                'cancelable': true,
+                                'clientX': Math.random() * window.innerWidth,
+                                'clientY': Math.random() * window.innerHeight
+                            });
+                            document.dispatchEvent(event);
+                        """)
+                    except:
+                        pass
+
                 if remaining % 30 == 0:
                     self.log(f"Streaming... {remaining}s remaining.")
 
                 time.sleep(5)
 
             self.log("Stream duration reached.")
+
+            # Post-Stream Wait (Session Continuity)
+            wait_time = random.randint(60, 300)
+            self.log(f"Waiting {wait_time}s before closing session...")
+            time.sleep(wait_time)
 
         except Exception as e:
             self.log(f"Streaming error: {e}")

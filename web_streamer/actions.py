@@ -1,6 +1,8 @@
 import time
 import random
 import logging
+import json
+import os
 from selenium.webdriver.common.by import By
 from selenium.webdriver.common.keys import Keys
 from selenium.webdriver.support.ui import WebDriverWait
@@ -11,18 +13,47 @@ logger = logging.getLogger(__name__)
 class SpotifyActions:
     def __init__(self, driver):
         self.driver = driver
+        self.selectors = self._load_selectors()
+
+    def _load_selectors(self):
+        try:
+            with open(os.path.join(os.path.dirname(__file__), 'selectors.json'), 'r') as f:
+                return json.load(f)
+        except Exception as e:
+            logger.error(f"Failed to load selectors.json: {e}")
+            return {}
+
+    def _click_element(self, category, key, timeout=10):
+        """Helper to try multiple selectors for a key."""
+        selectors = self.selectors.get(category, {}).get(key, [])
+        if not selectors:
+            logger.warning(f"No selectors found for {category}.{key}")
+            return False
+
+        for selector in selectors:
+            try:
+                if selector.startswith("//"):
+                     by = By.XPATH
+                else:
+                     by = By.CSS_SELECTOR
+
+                element = WebDriverWait(self.driver, timeout).until(
+                    EC.element_to_be_clickable((by, selector))
+                )
+                element.click()
+                return True
+            except:
+                continue
+        return False
 
     def create_playlist(self, name, tracks=None):
         """Creates a playlist and adds tracks."""
         try:
             # Go to 'Create Playlist'
-            # Note: Selectors change often. This is a best-effort.
+            if not self._click_element("navigation", "create_playlist"):
+                 logger.warning("Could not find Create Playlist button.")
+                 return None
 
-            # Click "Create Playlist" in sidebar
-            create_btn = WebDriverWait(self.driver, 10).until(
-                EC.element_to_be_clickable((By.CSS_SELECTOR, "button[data-testid='create-playlist-button']"))
-            )
-            create_btn.click()
             time.sleep(2)
 
             # Rename (Optional, defaults to "My Playlist #x")
@@ -57,22 +88,11 @@ class SpotifyActions:
 
     def like_current_song(self):
         """Clicks the Heart/Like button for the currently playing song."""
-        try:
-            # Look for the heart button in the Now Playing bar
-            like_btn = WebDriverWait(self.driver, 5).until(
-                EC.element_to_be_clickable((By.CSS_SELECTOR, "button[data-testid='add-button']"))
-            )
-            aria_label = like_btn.get_attribute("aria-label")
-            if "Save" in aria_label or "Add" in aria_label:
-                like_btn.click()
-                logger.info("Liked current song.")
-                return True
-            else:
-                logger.info("Song already liked.")
-                return False
-        except Exception as e:
-            # Could be already liked (Remove button) or selector changed
-            return False
+        # Using centralized selector
+        if self._click_element("playback", "like_button", timeout=5):
+            logger.info("Liked current song.")
+            return True
+        return False
 
     def follow_artist(self, artist_url):
         try:
@@ -130,11 +150,7 @@ class SpotifyActions:
 
     def skip_track(self):
         """Clicks the 'Next' button."""
-        try:
-            next_btn = self.driver.find_element(By.CSS_SELECTOR, "button[data-testid='control-button-skip-forward']")
-            next_btn.click()
+        if self._click_element("playback", "next_track"):
             logger.info("Skipped Track.")
             return True
-        except Exception as e:
-            logger.error(f"Skip track failed: {e}")
-            return False
+        return False

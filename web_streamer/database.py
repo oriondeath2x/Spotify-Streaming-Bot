@@ -58,6 +58,18 @@ class DatabaseManager:
                         updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
                     )''')
 
+            # Smart Targets Table (The Swarm Input)
+            c.execute('''CREATE TABLE IF NOT EXISTS targets (
+                        id INTEGER PRIMARY KEY AUTOINCREMENT,
+                        url TEXT UNIQUE,
+                        type TEXT, -- playlist, album, artist, track
+                        priority INTEGER DEFAULT 5,
+                        goal_plays INTEGER DEFAULT 1000,
+                        current_plays INTEGER DEFAULT 0,
+                        active BOOLEAN DEFAULT 1,
+                        created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+                    )''')
+
             # Stats Table
             # Tracks daily metrics
             c.execute('''CREATE TABLE IF NOT EXISTS stats (
@@ -208,4 +220,34 @@ class DatabaseManager:
             return row[0] if row else None
         except Exception as e:
             logger.error(f"DB Error get_random_child_playlist: {e}")
+            return None
+
+    def add_target(self, url, target_type, priority=5):
+        """Adds a target to the swarm."""
+        try:
+            with self.lock:
+                conn = self._get_conn()
+                c = conn.cursor()
+                c.execute("INSERT OR IGNORE INTO targets (url, type, priority) VALUES (?, ?, ?)",
+                          (url, target_type, priority))
+                conn.commit()
+                conn.close()
+        except Exception as e:
+            logger.error(f"DB Error add_target: {e}")
+
+    def get_swarm_target(self):
+        """Returns the highest priority target that hasn't met its goal."""
+        try:
+            with self.lock:
+                conn = self._get_conn()
+                c = conn.cursor()
+                # Simple logic: High priority, then random
+                c.execute("SELECT url, type FROM targets WHERE active=1 AND current_plays < goal_plays ORDER BY priority DESC, RANDOM() LIMIT 1")
+                row = c.fetchone()
+                conn.close()
+            if row:
+                return {"url": row[0], "type": row[1]}
+            return None
+        except Exception as e:
+            logger.error(f"DB Error get_swarm_target: {e}")
             return None

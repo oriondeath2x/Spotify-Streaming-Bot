@@ -40,31 +40,31 @@ class Scheduler:
 
     def get_next_task(self, username, master_playlist_url):
         """
-        Intelligently decides what the bot should do next.
+        Intelligently decides what the bot should do next (Swarm Logic).
         Strategies:
-        1. Stream Master Playlist (if under-played).
-        2. Create Child Playlist (if not enough child playlists exist).
-        3. Stream a Child Playlist (to look organic).
-        4. Stream Artist/Album directly.
+        1. Swarm Target: Check DB for specific targets (Artist, Album, Playlist).
+        2. Collaborative: Create/Stream child playlists.
+        3. Fallback: Stream Master.
         """
-        # Simple probability logic for now
         rand = random.random()
 
-        if rand < 0.1:
-            return {"action": "create_child_playlist", "source": master_playlist_url}
+        # 1. Swarm Target (Priority)
+        swarm_target = self.db.get_swarm_target()
+        if swarm_target:
+            # If we found a specific target, use it 70% of the time
+            if rand < 0.7:
+                return {"action": "swarm_target", "url": swarm_target['url'], "type": swarm_target['type']}
+
+        # 2. Child Playlists (Diversification)
+        if rand < 0.2:
+             return {"action": "create_child_playlist", "source": master_playlist_url}
         elif rand < 0.4:
-            # Pick a child playlist created by someone else
-            child_url = self.db.get_random_child_playlist(exclude_creator=username)
-            if child_url:
-                return {"action": "stream_child", "url": child_url}
-            else:
-                return {"action": "stream_master", "url": master_playlist_url}
-        elif rand < 0.6:
-            # Direct Artist/Album play (needs logic to extract from master, skipping for now)
-            # Fallback to master
-            return {"action": "stream_master", "url": master_playlist_url}
-        else:
-            return {"action": "stream_master", "url": master_playlist_url}
+             child_url = self.db.get_random_child_playlist(exclude_creator=username)
+             if child_url:
+                 return {"action": "stream_child", "url": child_url}
+
+        # 3. Fallback
+        return {"action": "stream_master", "url": master_playlist_url}
 
     def assign_song_from_master(self, master_url):
         """
