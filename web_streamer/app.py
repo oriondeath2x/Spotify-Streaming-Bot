@@ -87,6 +87,10 @@ def check_bans():
 def create_account():
     data = request.json
     proxy = data.get('proxy')
+    # Treat empty string as None (Proxyless)
+    if not proxy or proxy.strip() == "":
+        proxy = None
+
     creator = AccountCreator(proxy=proxy, headless=False) # Headless False to see Captcha
 
     result, msg = creator.signup()
