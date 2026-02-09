@@ -138,10 +138,21 @@ class BrowserHandler:
         # Consistent Fingerprint
         options.add_argument(f'--user-agent={self.user_agent}')
 
-        # Window Size
-        if self.profile_data.get('window_size'):
-            width, height = self.profile_data['window_size'].split(',')
-            options.add_argument(f'--window-size={width},{height}')
+        # Device Emulation (Mobile)
+        device_type = self.profile_data.get('device_type', 'desktop')
+
+        if device_type == 'mobile':
+            mobile_emulation = {
+                "deviceMetrics": { "width": 375, "height": 812, "pixelRatio": 3.0 },
+                "userAgent": "Mozilla/5.0 (iPhone; CPU iPhone OS 13_2_3 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/13.0.3 Mobile/15E148 Safari/604.1"
+            }
+            options.add_experimental_option("mobileEmulation", mobile_emulation)
+            logger.info("Using Mobile Emulation (iPhone X Profile)")
+        else:
+            # Window Size (Desktop)
+            if self.profile_data.get('window_size'):
+                width, height = self.profile_data['window_size'].split(',')
+                options.add_argument(f'--window-size={width},{height}')
 
         options.add_argument('--no-first-run')
         options.add_argument('--no-service-autorun')
@@ -170,16 +181,18 @@ class BrowserHandler:
             self.driver = uc.Chrome(options=options, use_subprocess=True) # use_subprocess fixes some issues
 
             # Apply Selenium Stealth with Profile Data if available
-            platform = self.profile_data.get('platform', 'Win32')
-
-            stealth(self.driver,
-                languages=["en-US", "en"],
-                vendor="Google Inc.",
-                platform=platform,
-                webgl_vendor="Intel Inc.",
-                renderer="Intel Iris OpenGL Engine",
-                fix_hairline=True,
-            )
+            # Note: Stealth might conflict with mobile emulation UA override if not careful.
+            # Only apply if desktop to avoid overriding mobile UA.
+            if device_type == 'desktop':
+                platform = self.profile_data.get('platform', 'Win32')
+                stealth(self.driver,
+                    languages=["en-US", "en"],
+                    vendor="Google Inc.",
+                    platform=platform,
+                    webgl_vendor="Intel Inc.",
+                    renderer="Intel Iris OpenGL Engine",
+                    fix_hairline=True,
+                )
 
             # Additional Fingerprint Randomization (Canvas/Audio)
             self._inject_fingerprint_scripts()

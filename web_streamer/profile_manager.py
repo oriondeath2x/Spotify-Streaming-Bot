@@ -4,12 +4,14 @@ import logging
 import random
 import time
 from fake_useragent import UserAgent
+from .database import DatabaseManager
 
 logger = logging.getLogger(__name__)
 
 class ProfileManager:
-    def __init__(self, profiles_dir="web_streamer/profiles"):
+    def __init__(self, profiles_dir="web_streamer/profiles", db_manager=None):
         self.profiles_dir = profiles_dir
+        self.db = db_manager or DatabaseManager()
         if not os.path.exists(profiles_dir):
             os.makedirs(profiles_dir)
         try:
@@ -17,29 +19,40 @@ class ProfileManager:
         except:
             self.ua = None # Fallback
 
-    def get_profile_path(self, username):
-        return os.path.join(self.profiles_dir, f"{username}.json")
+    def get_cookies_path(self, username):
+        """Returns path for cookies (still file-based for now)."""
+        return os.path.join(self.profiles_dir, f"{username}.pkl")
 
     def load_profile(self, username):
-        """Loads profile metadata if it exists."""
-        path = self.get_profile_path(username)
-        if os.path.exists(path):
+        """Loads profile metadata from DB (fallback to file if not in DB)."""
+        # Try DB first
+        profile = self.db.get_profile(username)
+        if profile:
+            return profile
+
+        # Fallback to file (Legacy)
+        json_path = os.path.join(self.profiles_dir, f"{username}.json")
+        if os.path.exists(json_path):
             try:
-                with open(path, 'r') as f:
-                    return json.load(f)
+                with open(json_path, 'r') as f:
+                    data = json.load(f)
+                    # Migrate to DB
+                    self.db.save_profile(username, data)
+                    return data
             except Exception as e:
-                logger.error(f"Failed to load profile for {username}: {e}")
+                logger.error(f"Failed to load profile file for {username}: {e}")
         return None
 
     def save_profile(self, username, data):
-        """Saves profile metadata."""
-        path = self.get_profile_path(username)
+        """Saves profile metadata to DB."""
+        self.db.save_profile(username, data)
+        # Also keep legacy file for now (optional backup)
         try:
-            with open(path, 'w') as f:
+            json_path = os.path.join(self.profiles_dir, f"{username}.json")
+            with open(json_path, 'w') as f:
                 json.dump(data, f, indent=4)
-            logger.info(f"Saved profile metadata for {username}")
-        except Exception as e:
-            logger.error(f"Failed to save profile for {username}: {e}")
+        except:
+            pass
 
     def get_or_create_profile(self, username, assigned_proxy=None):
         """

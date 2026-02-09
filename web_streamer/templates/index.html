@@ -16,9 +16,23 @@
 </head>
 <body>
     <div class="container mt-4">
-        <h1 class="text-center mb-4">Spotify Web Streamer <span class="badge bg-success">v2.0</span></h1>
+        <h1 class="text-center mb-4">Spotify Web Streamer <span class="badge bg-success">v3.0</span></h1>
 
-        <div class="row">
+        <ul class="nav nav-tabs mb-3" id="myTab" role="tablist">
+            <li class="nav-item" role="presentation">
+                <button class="nav-link active" id="dashboard-tab" data-bs-toggle="tab" data-bs-target="#dashboard" type="button" role="tab">Dashboard</button>
+            </li>
+            <li class="nav-item" role="presentation">
+                <button class="nav-link" id="accounts-tab" data-bs-toggle="tab" data-bs-target="#accounts" type="button" role="tab">Accounts & Stats</button>
+            </li>
+            <li class="nav-item" role="presentation">
+                <button class="nav-link" id="creator-tab" data-bs-toggle="tab" data-bs-target="#creator" type="button" role="tab">Account Creator</button>
+            </li>
+        </ul>
+
+        <div class="tab-content" id="myTabContent">
+            <div class="tab-pane fade show active" id="dashboard" role="tabpanel">
+                <div class="row">
             <!-- Configuration Panel -->
             <div class="col-md-4">
                 <div class="card p-3 mb-3">
@@ -54,7 +68,7 @@
                 </div>
 
                 <div class="card p-3 mb-3">
-                    <h4>Data Input</h4>
+                    <h4>Quick Import</h4>
                     <div class="mb-2">
                         <label>Accounts (user:pass)</label>
                         <textarea class="form-control" id="accountsList" rows="5" placeholder="user:pass"></textarea>
@@ -63,7 +77,7 @@
                         <label>Proxies (ip:port:user:pass)</label>
                         <textarea class="form-control" id="proxiesList" rows="5" placeholder="ip:port:user:pass"></textarea>
                     </div>
-                    <button id="updateDataBtn" class="btn btn-warning w-100">Update Data</button>
+                    <button id="updateDataBtn" class="btn btn-warning w-100">Import & Sync to DB</button>
                 </div>
             </div>
 
@@ -104,8 +118,59 @@
                     </div>
                 </div>
             </div>
+
+            </div>
+
+            <div class="tab-pane fade" id="accounts" role="tabpanel">
+                <div class="row">
+                    <div class="col-md-6">
+                        <div class="card p-3 mb-3">
+                            <h4>Database Stats</h4>
+                            <canvas id="statsChart"></canvas>
+                        </div>
+                    </div>
+                    <div class="col-md-6">
+                        <div class="card p-3 mb-3">
+                            <h4>Account Management</h4>
+                            <button id="checkBansBtn" class="btn btn-danger mb-3">Check All for Bans</button>
+                            <div class="table-responsive" style="max_height: 400px; overflow-y: auto;">
+                                <table class="table table-dark table-sm" id="accountsTable">
+                                    <thead>
+                                        <tr>
+                                            <th>Username</th>
+                                            <th>Status</th>
+                                            <th>Device</th>
+                                            <th>Proxy</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody></tbody>
+                                </table>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="tab-pane fade" id="creator" role="tabpanel">
+                <div class="card p-3">
+                    <h4>Account Creator</h4>
+                    <div class="alert alert-warning">
+                        <strong>Note:</strong> Captcha solving requires manual intervention or paid API integration (not included in this free version).
+                    </div>
+                    <form id="creatorForm">
+                         <div class="mb-3">
+                            <label>Proxy for Creation (Optional)</label>
+                            <input type="text" class="form-control" id="creatorProxy" placeholder="ip:port:user:pass">
+                        </div>
+                        <button type="submit" class="btn btn-primary">Generate Account</button>
+                    </form>
+                    <div class="mt-3" id="creatorResult"></div>
+                </div>
+            </div>
         </div>
     </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
     <script>
@@ -147,6 +212,61 @@
                 alert("Profiles reset.");
             }
         });
+
+        // Check Bans
+        document.getElementById('checkBansBtn').addEventListener('click', async () => {
+             alert("Starting Ban Checker... This may take time.");
+             const res = await fetch(`${API_URL}/check_bans`, { method: 'POST' });
+             const json = await res.json();
+             alert("Check Complete. Reloading accounts.");
+             loadAccounts();
+        });
+
+        // Creator
+        document.getElementById('creatorForm').addEventListener('submit', async (e) => {
+            e.preventDefault();
+            const proxy = document.getElementById('creatorProxy').value;
+            document.getElementById('creatorResult').innerText = "Generating... Please solve Captcha if browser opens.";
+
+            const res = await fetch(`${API_URL}/create_account`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ proxy: proxy })
+            });
+            const json = await res.json();
+            document.getElementById('creatorResult').innerText = json.message;
+        });
+
+        async function loadAccounts() {
+            const res = await fetch(`${API_URL}/accounts`);
+            const accounts = await res.json();
+            const tbody = document.querySelector('#accountsTable tbody');
+            tbody.innerHTML = '';
+            accounts.forEach(acc => {
+                const tr = document.createElement('tr');
+                tr.innerHTML = `<td>${acc.username}</td><td>${acc.status}</td><td>${acc.device_type}</td><td>${acc.proxy || '-'}</td>`;
+                tbody.appendChild(tr);
+            });
+        }
+
+        async function loadStats() {
+            const res = await fetch(`${API_URL}/stats`);
+            const stats = await res.json();
+
+            const ctx = document.getElementById('statsChart').getContext('2d');
+            new Chart(ctx, {
+                type: 'line',
+                data: {
+                    labels: stats.map(s => s.date),
+                    datasets: [{
+                        label: 'Streams',
+                        data: stats.map(s => s.streams),
+                        borderColor: '#1db954',
+                        tension: 0.1
+                    }]
+                }
+            });
+        }
 
         // Update Data (Accounts/Proxies)
         document.getElementById('updateDataBtn').addEventListener('click', async () => {
@@ -242,6 +362,8 @@
         setInterval(updateStatus, 2000);
         updateStatus(); // Initial call
         loadConfig(); // Load initial config
+        loadAccounts(); // Load DB accounts
+        loadStats(); // Load Stats
 
     </script>
 </body>

@@ -3,6 +3,7 @@ import threading
 import logging
 from .bot import SpotifyBot
 from .profile_manager import ProfileManager
+from .database import DatabaseManager
 
 # Configure logging
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
@@ -14,7 +15,8 @@ class BotManager:
         self.proxies = []
         self.active_bots = {} # {username: SpotifyBot}
         self.lock = threading.Lock()
-        self.profile_manager = ProfileManager()
+        self.db = DatabaseManager()
+        self.profile_manager = ProfileManager(db_manager=self.db)
 
     def parse_accounts(self, text_lines):
         """Helper to parse a list of strings into account objects."""
@@ -38,12 +40,24 @@ class BotManager:
         return parsed
 
     def load_accounts(self, filepath):
-        """Loads accounts from a file."""
+        """Loads accounts from a file and syncs to DB."""
         try:
             with open(filepath, 'r') as f:
                 lines = f.readlines()
-            self.accounts = self.parse_accounts(lines)
-            logger.info(f"Loaded {len(self.accounts)} accounts.")
+
+            parsed = self.parse_accounts(lines)
+            self.accounts = parsed
+
+            # Sync to DB
+            for entry in parsed:
+                try:
+                    user, pwd = entry['account'].split(':')
+                    proxy = entry['proxy']
+                    self.db.add_account(user, pwd, proxy)
+                except:
+                    pass
+
+            logger.info(f"Loaded {len(self.accounts)} accounts and synced to DB.")
             return True, f"Loaded {len(self.accounts)} accounts."
         except Exception as e:
             return False, str(e)
@@ -68,7 +82,7 @@ class BotManager:
         profile_data = self.profile_manager.get_or_create_profile(username, assigned_proxy=proxy)
 
         # Ensure the profile path is correct for cookies
-        profile_data['profile_path'] = self.profile_manager.get_profile_path(username).replace('.json', '.pkl')
+        profile_data['profile_path'] = self.profile_manager.get_cookies_path(username)
 
         with self.lock:
             if username in self.active_bots:

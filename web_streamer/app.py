@@ -3,9 +3,13 @@ import threading
 import time
 import os
 from .manager import BotManager
+from .database import DatabaseManager
+from .checker import BanChecker
+from .creator import AccountCreator
 
 app = Flask(__name__)
 manager = BotManager()
+db = DatabaseManager()
 
 # Global config storage
 CONFIG = {
@@ -62,6 +66,41 @@ def stop_bot():
 def reset_profiles():
     success, msg = manager.reset_profiles()
     return jsonify({"message": msg})
+
+@app.route('/api/accounts', methods=['GET'])
+def get_accounts():
+    accounts = db.get_accounts()
+    return jsonify(accounts)
+
+@app.route('/api/stats', methods=['GET'])
+def get_stats():
+    stats = db.get_stats()
+    return jsonify(stats)
+
+@app.route('/api/check_bans', methods=['POST'])
+def check_bans():
+    checker = BanChecker(headless=CONFIG['headless'])
+    results = checker.check_all()
+    return jsonify({"message": "Check complete", "results": results})
+
+@app.route('/api/create_account', methods=['POST'])
+def create_account():
+    data = request.json
+    proxy = data.get('proxy')
+    creator = AccountCreator(proxy=proxy, headless=False) # Headless False to see Captcha
+
+    result, msg = creator.signup()
+
+    if result:
+        # Assuming result is "email:pass"
+        try:
+            user, pwd = result.split(':')
+            db.add_account(user, pwd, proxy)
+            return jsonify({"success": True, "message": f"Created: {user}"})
+        except:
+            return jsonify({"success": True, "message": f"Created but failed to parse: {result}"})
+    else:
+        return jsonify({"success": False, "message": msg})
 
 @app.route('/api/config', methods=['GET', 'POST'])
 def update_config():

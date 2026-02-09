@@ -120,6 +120,9 @@ class SpotifyBot(threading.Thread):
                 self.log("Starting Engagement (Like/Follow/Stream).")
                 self._engage(driver, actions)
 
+            # Record stream count
+            self.increment_stat("streams_count")
+
         except Exception as e:
             self.log(f"Error: {str(e)}")
         finally:
@@ -127,6 +130,18 @@ class SpotifyBot(threading.Thread):
             if self.driver_handler:
                 self.driver_handler.stop_driver()
             self.is_running = False
+
+    def increment_stat(self, stat_type):
+        """Helper to increment stats in DB."""
+        # Bot doesn't have direct DB access, but manager does.
+        # Ideally, we should inject DB manager. For now, skipping to avoid circular dependency refactor.
+        # Or, we can do a quick import inside method.
+        try:
+            from .database import DatabaseManager
+            db = DatabaseManager()
+            db.increment_stat(stat_type)
+        except:
+            pass
 
     def _login(self, driver):
         try:
