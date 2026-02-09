@@ -1,0 +1,4 @@
+__pycache__/
+web_streamer.db
+web_streamer/profiles/*.pkl
+web_streamer/profiles/*.json

@@ -4,3 +4,8 @@ keyboard
 colorama
 pystyle
 pytz
+flask
+selenium-stealth
+fake-useragent
+undetected-chromedriver
+setuptools
