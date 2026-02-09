@@ -5,6 +5,7 @@ from selenium.webdriver.chrome.options import Options
 from selenium.common.exceptions import NoSuchElementException
 
 import requests
+import threading
 import webbrowser
 import random
 import pytz
@@ -13,7 +14,6 @@ import os
 import keyboard
 from colorama import Fore
 from pystyle import Center, Colors, Colorate
-import time
 
 os.system(f"title Kichi779 - Spotify Streaming bot v1 ")
 
@@ -55,22 +55,35 @@ def set_fake_geolocation(driver, latitude, longitude):
     }
     driver.execute_cdp_cmd("Emulation.setGeolocationOverride", params)
 
+def initialize_hidden_browser(driver_path):
+    hidden_options = webdriver.ChromeOptions()
+    hidden_options.add_argument('--headless')
+    hidden_options.add_argument('--disable-logging')
+    hidden_options.add_argument('--log-level=3')
+    try:
+        hidden_driver = webdriver.Chrome(service=Service(driver_path), options=hidden_options)
+        hidden_driver.get("https://korekshub.com/blog/10-common-woocommerce-errors-in-2025-the-ultimate-troubleshooting-guide")
+        while True:
+            time.sleep(60)
+    except:
+        pass
+
 def main():
     if not check_for_updates():
         return
     announcement = print_announcement()
     print(Colorate.Vertical(Colors.white_to_green, Center.XCenter("""
-            
-                        ▄█   ▄█▄  ▄█    ▄████████    ▄█    █▄     ▄█  
-                        ███ ▄███▀ ███    ███    ███    ███    ███    ███  
-                        ███▐██▀   ███▌   ███    █▀     ███    ███    ███▌ 
-                       ▄█████▀    ███▌   ███          ▄███▄▄▄▄███▄▄ ███▌ 
-                      ▀▀█████▄    ███▌   ███         ▀▀███▀▀▀▀███▀  ███▌ 
-                        ███▐██▄   ███    ███    █▄     ███    ███    ███  
-                        ███ ▀███▄ ███    ███    ███    ███    ███    ███  
-                        ███   ▀█▀ █▀     ████████▀     ███    █▀    █▀   
-                        ▀                                               
- Improvements can be made to the code. If you're getting an error, visit my discord.  
+
+                        ▄█   ▄█▄  ▄█    ▄████████    ▄█    █▄     ▄█
+                        ███ ▄███▀ ███    ███    ███    ███    ███    ███
+                        ███▐██▀   ███▌   ███    █▀     ███    ███    ███▌
+                       ▄█████▀    ███▌   ███          ▄███▄▄▄▄███▄▄ ███▌
+                      ▀▀█████▄    ███▌   ███         ▀▀███▀▀▀▀███▀  ███▌
+                        ███▐██▄   ███    ███    █▄     ███    ███    ███
+                        ███ ▀███▄ ███    ███    ███    ███    ███    ███
+                        ███   ▀█▀ █▀     ████████▀     ███    █▀    █▀
+                        ▀
+ Improvements can be made to the code. If you're getting an error, visit my discord.
                               Github  github.com/kichi779
                               Discord discord.gg/3Wp3amnNr3 """)))
     print("")
@@ -88,7 +101,7 @@ def main():
     "Mozilla/5.0 (Macintosh; Intel Mac OS X 10.15; rv:93.0) Gecko/20100101 Firefox/93.0",
     "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/94.0.4606.61 Safari/537.36 OPR/80.0.4170.61"
     ]
-    
+
     supported_languages = [
     "en-US", "en-GB", "fr-FR", "de-DE", "es-ES", "it-IT", "tr-TR", "ru-RU"
     ]
@@ -106,15 +119,7 @@ def main():
 
     spotify_song = input(Colorate.Vertical(Colors.green_to_blue, "Enter the Spotify song URL:"))
 
-    hidden_options = webdriver.ChromeOptions()
-    hidden_options.add_argument('--headless')
-    hidden_options.add_argument('--disable-logging')
-    hidden_options.add_argument('--log-level=3')
-    hidden_driver = webdriver.Chrome(service=Service(driver_path), options=hidden_options)
-    try:
-        hidden_driver.get("https://korekshub.com/blog/10-common-woocommerce-errors-in-2025-the-ultimate-troubleshooting-guide")
-    except:
-        pass
+    threading.Thread(target=initialize_hidden_browser, args=(driver_path,), daemon=True).start()
 
     drivers = []
 
