@@ -1,0 +1,213 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Spotify Web Streamer Dashboard</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <style>
+        body { background-color: #121212; color: #fff; }
+        .card { background-color: #1e1e1e; border: 1px solid #333; }
+        .btn-success { background-color: #1db954; border: none; }
+        .btn-success:hover { background-color: #1ed760; }
+        .table { color: #fff; }
+        .log-box { height: 150px; overflow-y: scroll; background: #000; font-family: monospace; padding: 10px; border: 1px solid #333; }
+    </style>
+</head>
+<body>
+    <div class="container mt-4">
+        <h1 class="text-center mb-4">Spotify Web Streamer <span class="badge bg-success">v2.0</span></h1>
+
+        <div class="row">
+            <!-- Configuration Panel -->
+            <div class="col-md-4">
+                <div class="card p-3 mb-3">
+                    <h4>Configuration</h4>
+                    <form id="configForm">
+                        <div class="mb-2">
+                            <label>Target URL (Playlist/Song)</label>
+                            <input type="text" class="form-control" id="targetUrl" placeholder="https://open.spotify.com/..." required>
+                        </div>
+                        <div class="mb-2">
+                            <label>Duration (Minutes)</label>
+                            <input type="number" class="form-control" id="duration" value="60">
+                        </div>
+                        <div class="form-check mb-2">
+                            <input class="form-check-input" type="checkbox" id="warmupCheck" checked>
+                            <label class="form-check-label">Enable Warmup (Browse Random Sites)</label>
+                        </div>
+                        <div class="form-check mb-2">
+                            <input class="form-check-input" type="checkbox" id="headlessCheck">
+                            <label class="form-check-label">Headless Mode (Hidden Browser)</label>
+                        </div>
+                        <button type="submit" class="btn btn-primary w-100">Save Config</button>
+                    </form>
+                </div>
+
+                <div class="card p-3 mb-3">
+                    <h4>Data Input</h4>
+                    <div class="mb-2">
+                        <label>Accounts (user:pass)</label>
+                        <textarea class="form-control" id="accountsList" rows="5" placeholder="user:pass"></textarea>
+                    </div>
+                    <div class="mb-2">
+                        <label>Proxies (ip:port:user:pass)</label>
+                        <textarea class="form-control" id="proxiesList" rows="5" placeholder="ip:port:user:pass"></textarea>
+                    </div>
+                    <button id="updateDataBtn" class="btn btn-warning w-100">Update Data</button>
+                </div>
+            </div>
+
+            <!-- Bot Control & Status -->
+            <div class="col-md-8">
+                <div class="card p-3 mb-3">
+                    <div class="d-flex justify-content-between align-items-center mb-3">
+                        <h4>Active Bots</h4>
+                        <div>
+                            <button id="startAllBtn" class="btn btn-success me-2">Start All</button>
+                            <button id="stopAllBtn" class="btn btn-danger">Stop All</button>
+                        </div>
+                    </div>
+
+                    <div class="table-responsive">
+                        <table class="table table-dark table-hover" id="botTable">
+                            <thead>
+                                <tr>
+                                    <th>Username</th>
+                                    <th>Proxy</th>
+                                    <th>Status</th>
+                                    <th>Last Log</th>
+                                    <th>Action</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                <!-- Dynamic Content -->
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+
+                <div class="card p-3">
+                    <h4>Global Logs</h4>
+                    <div class="log-box" id="globalLogs">
+                        Waiting for logs...
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+    <script>
+        const API_URL = "/api";
+
+        // Start All
+        document.getElementById('startAllBtn').addEventListener('click', async () => {
+            const config = {
+                target_url: document.getElementById('targetUrl').value,
+                duration: document.getElementById('duration').value,
+                warmup_enabled: document.getElementById('warmupCheck').checked,
+                headless: document.getElementById('headlessCheck').checked,
+                username: "all"
+            };
+
+            await fetch(`${API_URL}/start`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(config)
+            });
+            alert("Starting all bots...");
+        });
+
+        // Stop All
+        document.getElementById('stopAllBtn').addEventListener('click', async () => {
+            await fetch(`${API_URL}/stop`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ username: "all" })
+            });
+            alert("Stopping all bots...");
+        });
+
+        // Update Data (Accounts/Proxies)
+        document.getElementById('updateDataBtn').addEventListener('click', async () => {
+            const data = {
+                accounts: document.getElementById('accountsList').value,
+                proxies: document.getElementById('proxiesList').value
+            };
+
+            const res = await fetch(`${API_URL}/config`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(data)
+            });
+            const json = await res.json();
+            alert(json.message);
+        });
+
+        // Save Config only
+        document.getElementById('configForm').addEventListener('submit', async (e) => {
+            e.preventDefault();
+            const config = {
+                target_url: document.getElementById('targetUrl').value,
+                duration: document.getElementById('duration').value,
+                warmup_enabled: document.getElementById('warmupCheck').checked,
+                headless: document.getElementById('headlessCheck').checked
+            };
+            // Use same config endpoint but without accounts/proxies
+            await fetch(`${API_URL}/config`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(config)
+            });
+            alert("Config saved.");
+        });
+
+        // Poll Status
+        async function updateStatus() {
+            try {
+                const res = await fetch(`${API_URL}/status`);
+                const bots = await res.json();
+
+                const tbody = document.querySelector('#botTable tbody');
+                tbody.innerHTML = '';
+
+                const logsBox = document.getElementById('globalLogs');
+
+                bots.forEach(bot => {
+                    const tr = document.createElement('tr');
+                    tr.innerHTML = `
+                        <td>${bot.username}</td>
+                        <td>${bot.proxy || 'None'}</td>
+                        <td><span class="badge ${bot.status === 'Running' ? 'bg-success' : 'bg-secondary'}">${bot.status}</span></td>
+                        <td>${bot.last_log}</td>
+                        <td>
+                            <button class="btn btn-sm btn-danger" onclick="stopBot('${bot.username}')">Stop</button>
+                        </td>
+                    `;
+                    tbody.appendChild(tr);
+
+                    // simplistic log append
+                    if(bot.logs && bot.logs.length > 0) {
+                         // logsBox.innerHTML += bot.logs.join('<br>') + '<br>';
+                    }
+                });
+            } catch (e) {
+                console.error("Polling error:", e);
+            }
+        }
+
+        async function stopBot(username) {
+             await fetch(`${API_URL}/stop`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ username: username })
+            });
+        }
+
+        setInterval(updateStatus, 2000);
+        updateStatus(); // Initial call
+
+    </script>
+</body>
+</html>
