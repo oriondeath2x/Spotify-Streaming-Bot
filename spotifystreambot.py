@@ -242,6 +242,28 @@ url = "https://github.com/Kichi779/Spotify-Streaming-Bot/"
 
 def check_for_updates():
     try:
+from selenium import webdriver
+from selenium.webdriver.chrome.service import Service
+from selenium.webdriver.common.by import By
+from selenium.webdriver.chrome.options import Options
+from selenium.common.exceptions import NoSuchElementException
+
+import requests
+import webbrowser
+import random
+import pytz
+import time
+import os
+import keyboard
+from colorama import Fore
+from pystyle import Center, Colors, Colorate
+
+os.system(f"title Kichi779 - Spotify Streaming bot v1 ")
+
+url = "https://github.com/Kichi779/Spotify-Streaming-Bot/"
+
+def check_for_updates():
+    try:
         r = requests.get("https://raw.githubusercontent.com/Kichi779/Spotify-Streaming-Bot/main/version.txt", timeout=10)
         remote_version = r.content.decode('utf-8').strip()
         local_version = open('version.txt', 'r').read().strip()
