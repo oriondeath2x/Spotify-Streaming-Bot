@@ -13,7 +13,6 @@ import os
 import keyboard
 from colorama import Fore
 from pystyle import Center, Colors, Colorate
-import time
 
 os.system(f"title Kichi779 - Spotify Streaming bot v1 ")
 
