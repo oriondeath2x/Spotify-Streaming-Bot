@@ -83,26 +83,25 @@ class AccountCreator:
                 except:
                     continue
 
-            if email_field:
-                email_field.send_keys(creds['email'])
-            else:
-                raise Exception("Could not find Email field")
+            # Smart Fill Logic
+            self._smart_fill(driver, "email", creds['email'])
 
-            time.sleep(1)
-            # Password (Generic fallback)
+            # Check for "Next" button (Multi-step flow)
+            self._click_next_if_present(driver)
+            time.sleep(2)
+
+            self._smart_fill(driver, "password", creds['password'])
+            self._click_next_if_present(driver)
+            time.sleep(2)
+
+            self._smart_fill(driver, "name", creds['username'])
+
+            # Birthday (often separate inputs)
             try:
-                driver.find_element(By.NAME, "password").send_keys(creds['password'])
+                driver.find_element(By.NAME, "day").send_keys(creds['day'])
+                # Month and Year logic omitted for brevity, often complex dropdowns
             except:
-                driver.find_element(By.CSS_SELECTOR, "input[type='password']").send_keys(creds['password'])
-            time.sleep(1)
-            driver.find_element(By.NAME, "displayName").send_keys(creds['username'])
-            time.sleep(1)
-
-            # Birthday
-            driver.find_element(By.NAME, "day").send_keys(creds['day'])
-
-            # Month might be a dropdown
-            # ... skipping detailed form logic for brevity as it requires constant maintenance
+                pass
 
             # Captcha Handling
             # This is the blocker. Since we can't solve it automatically without paid API:
@@ -135,3 +134,58 @@ class AccountCreator:
             if i < int(count) - 1:
                 time.sleep(random.randint(5, 15))
         return results
+
+    def _smart_fill(self, driver, keyword, value):
+        """Scans page for input matching keyword and fills it."""
+        try:
+            # 1. Direct ID/Name match
+            inputs = driver.find_elements(By.TAG_NAME, "input")
+            target = None
+
+            # Priority 1: Exact attribute match
+            for inp in inputs:
+                for attr in ['id', 'name', 'type', 'data-testid']:
+                    val = inp.get_attribute(attr)
+                    if val and keyword in val.lower():
+                        target = inp
+                        break
+                if target: break
+
+            # Priority 2: Label match
+            if not target:
+                try:
+                    labels = driver.find_elements(By.TAG_NAME, "label")
+                    for label in labels:
+                        if keyword in label.text.lower():
+                            target = label.find_element(By.TAG_NAME, "input")
+                            break
+                except:
+                    pass
+
+            if target:
+                target.clear()
+                target.send_keys(value)
+                logger.info(f"SmartFill: Filled '{keyword}'")
+                return True
+            else:
+                logger.warning(f"SmartFill: Could not find input for '{keyword}'")
+                # Fallback screenshot
+                driver.save_screenshot(f"debug_missing_{keyword}.png")
+                return False
+        except Exception as e:
+            logger.error(f"SmartFill Error: {e}")
+            return False
+
+    def _click_next_if_present(self, driver):
+        """Clicks Next/Continue buttons if found."""
+        try:
+            buttons = driver.find_elements(By.TAG_NAME, "button")
+            for btn in buttons:
+                text = btn.text.lower()
+                if "next" in text or "continue" in text:
+                    btn.click()
+                    logger.info("Clicked Next/Continue")
+                    return True
+        except:
+            pass
+        return False
