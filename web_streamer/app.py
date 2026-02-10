@@ -85,26 +85,29 @@ def check_bans():
 
 @app.route('/api/create_account', methods=['POST'])
 def create_account():
-    data = request.json
-    proxy = data.get('proxy')
-    # Treat empty string as None (Proxyless)
-    if not proxy or proxy.strip() == "":
-        proxy = None
+    try:
+        data = request.json
+        proxy = data.get('proxy')
+        # Treat empty string as None (Proxyless)
+        if not proxy or proxy.strip() == "":
+            proxy = None
 
-    creator = AccountCreator(proxy=proxy, headless=False) # Headless False to see Captcha
+        creator = AccountCreator(proxy=proxy, headless=False) # Headless False to see Captcha
 
-    result, msg = creator.signup()
+        result, msg = creator.signup()
 
-    if result:
-        # Assuming result is "email:pass"
-        try:
-            user, pwd = result.split(':')
-            db.add_account(user, pwd, proxy)
-            return jsonify({"success": True, "message": f"Created: {user}"})
-        except:
-            return jsonify({"success": True, "message": f"Created but failed to parse: {result}"})
-    else:
-        return jsonify({"success": False, "message": msg})
+        if result:
+            # Assuming result is "email:pass"
+            try:
+                user, pwd = result.split(':')
+                db.add_account(user, pwd, proxy)
+                return jsonify({"success": True, "message": f"Created: {user}"})
+            except:
+                return jsonify({"success": True, "message": f"Created but failed to parse: {result}"})
+        else:
+            return jsonify({"success": False, "message": msg})
+    except Exception as e:
+        return jsonify({"success": False, "message": f"Server Error: {str(e)}"})
 
 @app.route('/api/config', methods=['GET', 'POST'])
 def update_config():

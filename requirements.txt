@@ -9,3 +9,4 @@ selenium-stealth
 fake-useragent
 undetected-chromedriver
 setuptools
+webdriver-manager

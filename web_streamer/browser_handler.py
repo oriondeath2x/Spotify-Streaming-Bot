@@ -11,6 +11,7 @@ import undetected_chromedriver as uc
 from selenium.webdriver.chrome.service import Service
 from selenium.webdriver.common.by import By
 from selenium_stealth import stealth
+from webdriver_manager.chrome import ChromeDriverManager
 
 # Configure logging
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
@@ -178,7 +179,15 @@ class BrowserHandler:
 
         try:
             logger.info("Starting Undetected Chrome Driver...")
-            self.driver = uc.Chrome(options=options, use_subprocess=True) # use_subprocess fixes some issues
+
+            # Use WebDriverManager to find/install correct driver
+            driver_path = ChromeDriverManager().install()
+
+            self.driver = uc.Chrome(
+                driver_executable_path=driver_path,
+                options=options,
+                use_subprocess=True
+            )
 
             # Apply Selenium Stealth with Profile Data if available
             # Note: Stealth might conflict with mobile emulation UA override if not careful.
