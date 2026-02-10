@@ -92,20 +92,34 @@ def create_account():
         if not proxy or proxy.strip() == "":
             proxy = None
 
-        creator = AccountCreator(proxy=proxy, headless=False) # Headless False to see Captcha
+        count = int(data.get('count', 1))
+        creator = AccountCreator(proxy=proxy, headless=False)
 
-        result, msg = creator.signup()
-
-        if result:
-            # Assuming result is "email:pass"
-            try:
-                user, pwd = result.split(':')
-                db.add_account(user, pwd, proxy)
-                return jsonify({"success": True, "message": f"Created: {user}"})
-            except:
-                return jsonify({"success": True, "message": f"Created but failed to parse: {result}"})
+        if count > 1:
+            # Batch Mode
+            results = creator.create_batch(count)
+            success_count = 0
+            for r in results:
+                if r['result']:
+                    try:
+                        user, pwd = r['result'].split(':')
+                        db.add_account(user, pwd, proxy)
+                        success_count += 1
+                    except:
+                        pass
+            return jsonify({"success": True, "message": f"Batch Complete. Created {success_count}/{count} accounts."})
         else:
-            return jsonify({"success": False, "message": msg})
+            # Single Mode
+            result, msg = creator.signup()
+            if result:
+                try:
+                    user, pwd = result.split(':')
+                    db.add_account(user, pwd, proxy)
+                    return jsonify({"success": True, "message": f"Created: {user}"})
+                except:
+                    return jsonify({"success": True, "message": f"Created but failed to parse: {result}"})
+            else:
+                return jsonify({"success": False, "message": msg})
     except Exception as e:
         return jsonify({"success": False, "message": f"Server Error: {str(e)}"})
 

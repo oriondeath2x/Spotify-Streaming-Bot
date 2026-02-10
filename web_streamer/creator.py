@@ -42,7 +42,9 @@ class AccountCreator:
     def signup(self):
         """Attempts to create an account."""
         creds = self.generate_credentials()
+        return self._run_signup(creds)
 
+    def _run_signup(self, creds):
         # Profile data for the creator instance
         profile_data = {
             "proxy": self.proxy,
@@ -71,9 +73,27 @@ class AccountCreator:
             # This is a generic implementation.
 
             # Email
-            driver.find_element(By.NAME, "email").send_keys(creds['email'])
+            # Try multiple selectors for email (Shadow DOM / Dynamic IDs fix)
+            email_selectors = ["input#email", "input[name='email']", "input[type='email']", "[data-testid='email-input']"]
+            email_field = None
+            for sel in email_selectors:
+                try:
+                    email_field = driver.find_element(By.CSS_SELECTOR, sel)
+                    break
+                except:
+                    continue
+
+            if email_field:
+                email_field.send_keys(creds['email'])
+            else:
+                raise Exception("Could not find Email field")
+
             time.sleep(1)
-            driver.find_element(By.NAME, "password").send_keys(creds['password'])
+            # Password (Generic fallback)
+            try:
+                driver.find_element(By.NAME, "password").send_keys(creds['password'])
+            except:
+                driver.find_element(By.CSS_SELECTOR, "input[type='password']").send_keys(creds['password'])
             time.sleep(1)
             driver.find_element(By.NAME, "displayName").send_keys(creds['username'])
             time.sleep(1)
@@ -103,3 +123,15 @@ class AccountCreator:
             self.driver_handler.stop_driver()
 
         return result, msg
+
+    def create_batch(self, count):
+        """Creates multiple accounts in a loop."""
+        results = []
+        for i in range(int(count)):
+            logger.info(f"Creating account {i+1}/{count}...")
+            res, msg = self.signup()
+            results.append({"result": res, "message": msg})
+            # Add delay between creations
+            if i < int(count) - 1:
+                time.sleep(random.randint(5, 15))
+        return results

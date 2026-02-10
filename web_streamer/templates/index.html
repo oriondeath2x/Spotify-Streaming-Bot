@@ -69,6 +69,14 @@
                             <input class="form-check-input" type="checkbox" id="headlessCheck">
                             <label class="form-check-label">Headless Mode (Hidden Browser)</label>
                         </div>
+                        <div class="mb-2">
+                            <label>Max Concurrent Bots</label>
+                            <input type="number" class="form-control" id="concurrency" value="5" min="1">
+                        </div>
+                        <div class="form-check mb-2">
+                            <input class="form-check-input" type="checkbox" id="rotationCheck">
+                            <label class="form-check-label">Enable Smart Rotation</label>
+                        </div>
                         <button type="submit" class="btn btn-primary w-100">Save Config</button>
                     </form>
                 </div>
@@ -174,7 +182,11 @@
                                     <label>Proxy for Creation</label>
                                     <input type="text" class="form-control" id="creatorProxy" placeholder="ip:port:user:pass">
                                 </div>
-                                <button type="submit" class="btn btn-primary">Generate Account</button>
+                                <div class="mb-3">
+                                    <label>Quantity</label>
+                                    <input type="number" class="form-control" id="creatorQuantity" value="1" min="1">
+                                </div>
+                                <button type="submit" class="btn btn-primary">Generate Accounts</button>
                             </form>
                             <div class="mt-3" id="creatorResult"></div>
                         </div>
@@ -197,6 +209,8 @@
                 warmup_enabled: document.getElementById('warmupCheck').checked,
                 headless: document.getElementById('headlessCheck').checked,
                 mode: document.getElementById('modeSelect').value,
+                concurrency: document.getElementById('concurrency').value,
+                rotation: document.getElementById('rotationCheck').checked,
                 username: "all"
             };
 
@@ -248,13 +262,14 @@
             if (document.getElementById('useProxyCheck').checked) {
                 proxy = document.getElementById('creatorProxy').value;
             }
+            const count = document.getElementById('creatorQuantity').value;
 
-            document.getElementById('creatorResult').innerText = "Generating... Please solve Captcha if browser opens.";
+            document.getElementById('creatorResult').innerText = "Generating... Please check logs/browser.";
 
             const res = await fetch(`${API_URL}/create_account`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ proxy: proxy })
+                body: JSON.stringify({ proxy: proxy, count: count })
             });
             const json = await res.json();
             document.getElementById('creatorResult').innerText = json.message;

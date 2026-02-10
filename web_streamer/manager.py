@@ -114,15 +114,66 @@ class BotManager:
                 return True, "Stop signal sent."
             return False, "Bot not found."
 
+    def start_smart_rotation(self, config):
+        """Manages rotating bots if account count > concurrency."""
+        concurrency = int(config.get('concurrency', 5))
+        duration = int(config.get('duration', 60))
+
+        # This needs to run in a separate background thread
+        def rotation_loop():
+            logger.info("Starting Smart Rotation Loop")
+            while True:
+                # Get accounts sorted by last_used (Least Recently Used first)
+                # Note: DB call needed here. Manager has DB instance.
+                # Since get_accounts doesn't sort, we might need a new DB method or sort in memory.
+                all_accounts = self.db.get_accounts()
+                # Sort by last_used (None is treated as oldest/first)
+                all_accounts.sort(key=lambda x: str(x.get('last_used') or ''))
+
+                active_count = len(self.active_bots)
+                slots_available = concurrency - active_count
+
+                if slots_available > 0:
+                    for acc in all_accounts:
+                        if slots_available <= 0: break
+                        if acc['username'] in self.active_bots: continue
+
+                        # Check ban status
+                        if acc.get('status') == 'Banned': continue
+
+                        logger.info(f"Rotation: Starting {acc['username']}")
+                        self.start_bot(acc['username'], acc['password'], acc['proxy'], config)
+                        slots_available -= 1
+                        time.sleep(5)
+
+                time.sleep(10) # Check every 10s
+
+        t = threading.Thread(target=rotation_loop, daemon=True)
+        t.start()
+        return True, "Smart Rotation started in background."
+
     def start_all(self, config):
         """Starts bots for all loaded accounts using available proxies."""
+        if config.get('rotation'):
+            return self.start_smart_rotation(config)
+
         if not self.accounts:
-            return False, "No accounts loaded."
+            # Fallback to DB accounts if memory is empty
+            db_accs = self.db.get_accounts()
+            if not db_accs:
+                return False, "No accounts loaded."
+            # Convert DB format to memory format for this method
+            self.accounts = [{"account": f"{a['username']}:{a['password']}", "proxy": a['proxy']} for a in db_accs]
+
+        # Concurrency limit for standard start
+        limit = int(config.get('concurrency', 9999))
 
         started_count = 0
         proxy_count = len(self.proxies) if self.proxies else 0
 
         for i, entry in enumerate(self.accounts):
+            if started_count >= limit: break
+
             # Entry is now a dict {"account": "u:p", "proxy": "..."}
             account = entry['account']
             specific_proxy = entry['proxy']
@@ -130,28 +181,14 @@ class BotManager:
             username, password = account.split(':')
 
             # Determine Proxy Strategy
-            # 1. Use specific proxy from account line (Combined format)
-            # 2. Use mapped proxy from proxy list (1:1 mapping)
-            # 3. Round robin (fallback)
-
-            final_proxy = None
-
-            if specific_proxy:
-                final_proxy = specific_proxy
-            elif self.proxies:
-                # 1:1 Mapping attempt
-                if i < proxy_count:
-                     final_proxy = self.proxies[i]
-                else:
-                     # Round robin fallback
-                     final_proxy = self.proxies[i % proxy_count]
+            final_proxy = specific_proxy
+            if not final_proxy and self.proxies:
+                final_proxy = self.proxies[i % proxy_count]
 
             success, msg = self.start_bot(username, password, final_proxy, config)
             if success:
                 started_count += 1
-
-            # Small delay between starts to avoid CPU spike
-            time.sleep(2)
+                time.sleep(2)
 
         return True, f"Started {started_count} bots."
 
